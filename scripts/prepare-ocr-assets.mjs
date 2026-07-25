@@ -34,6 +34,9 @@ for (const asset of assets) {
   await rename(temporary, asset.destination);
 }
 
+/*
+ * Original ONNX Runtime asset copy:
+ *
 const wasmSource = new URL(
   "../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm",
   import.meta.url,
@@ -44,3 +47,17 @@ const wasmDestination = new URL(
 );
 await mkdir(new URL(".", wasmDestination), { recursive: true });
 await copyFile(wasmSource, wasmDestination);
+ */
+const ortRuntimeFiles = [
+  "ort-wasm-simd-threaded.wasm",
+  "ort-wasm-simd-threaded.jsep.mjs",
+  "ort-wasm-simd-threaded.jsep.wasm",
+];
+const ortDirectory = new URL("../public/ort/", import.meta.url);
+await mkdir(ortDirectory, { recursive: true });
+for (const fileName of ortRuntimeFiles) {
+  await copyFile(
+    new URL(`../node_modules/onnxruntime-web/dist/${fileName}`, import.meta.url),
+    new URL(fileName, ortDirectory),
+  );
+}

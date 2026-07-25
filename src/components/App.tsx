@@ -345,7 +345,13 @@ function NewGame({
       if (!parsed.length) setMessage("정산 형식의 문장을 찾지 못했습니다. 판을 직접 추가하거나 이미지를 바꿔 보세요.");
       setRounds((current) => markDuplicates([...current, ...parsed]));
     } catch (reason) {
-      setMessage(reason instanceof DOMException && reason.name === "AbortError" ? "OCR을 취소했습니다." : "OCR 처리 중 문제가 생겼습니다.");
+      // Original: setMessage(reason instanceof DOMException && reason.name === "AbortError" ? "OCR을 취소했습니다." : "OCR 처리 중 문제가 생겼습니다.");
+      console.error("OCR processing failed.", reason);
+      setMessage(
+        reason instanceof DOMException && reason.name === "AbortError"
+          ? "OCR을 취소했습니다."
+          : `OCR 처리 중 문제가 생겼습니다: ${reason instanceof Error ? reason.message : String(reason)}`,
+      );
     } finally {
       await engine.terminate();
       setProgress({ active: false, label: "", value: 0 });

@@ -70,6 +70,9 @@ export class PaddleOcrEngine implements OcrEngine {
     const { PaddleOCR } = await import("@paddleocr/paddleocr-js");
     onProgress({ status: "한국어 PP-OCRv5 모델 준비 중", progress: 0.2 });
 
+    /*
+     * Original PaddleOCR initialization:
+     *
     this.engine = await PaddleOCR.create({
       worker: true,
       textDetectionModelName: "PP-OCRv5_mobile_det",
@@ -89,6 +92,40 @@ export class PaddleOcrEngine implements OcrEngine {
         proxy: false,
       },
     });
+     */
+    const createOptions = {
+      textDetectionModelName: "PP-OCRv5_mobile_det",
+      textDetectionModelAsset: {
+        url: publicAssetUrl("models/PP-OCRv5_mobile_det_onnx_infer.tar"),
+      },
+      textRecognitionModelName: "korean_PP-OCRv5_mobile_rec",
+      textRecognitionModelAsset: {
+        url: publicAssetUrl("models/korean_PP-OCRv5_mobile_rec_onnx_infer.tar"),
+      },
+      textRecognitionBatchSize: 6,
+      ortOptions: {
+        backend: "wasm" as const,
+        wasmPaths: publicAssetUrl("ort/"),
+        numThreads: 1,
+        simd: true,
+        proxy: false,
+      },
+    };
+
+    try {
+      this.engine = await PaddleOCR.create({ ...createOptions, worker: true });
+    } catch (workerReason) {
+      console.warn("PaddleOCR worker initialization failed; retrying without a worker.", workerReason);
+      onProgress({ status: "브라우저 호환 모드로 다시 준비 중", progress: 0.3 });
+      try {
+        this.engine = await PaddleOCR.create({ ...createOptions, worker: false });
+      } catch (fallbackReason) {
+        throw new AggregateError(
+          [workerReason, fallbackReason],
+          `PaddleOCR 초기화 실패: ${errorMessage(fallbackReason)}`,
+        );
+      }
+    }
 
     if (this.disposed) {
       await this.engine.dispose();
@@ -159,4 +196,9 @@ export class PaddleOcrEngine implements OcrEngine {
     await this.engine?.dispose();
     this.engine = null;
   }
+}
+
+function errorMessage(reason: unknown) {
+  if (reason instanceof Error && reason.message) return reason.message;
+  return String(reason);
 }
