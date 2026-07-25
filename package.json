@@ -6,13 +6,14 @@
   "_comment_original_ocr_dependency": "tesseract.js 6.0.1",
   "_comment_original_build_scripts": "build: tsc -b && vite build; build:sites was not present.",
   "_comment_previous_paddle_build_scripts": "Both PaddleOCR build scripts ended immediately after vite build, with prepare-sites-worker added only to build:sites.",
+  "_comment_previous_cache_recovery_build_scripts": "PaddleOCR builds ran prepare-ocr-assets, vite build, then remove-unused-ort-assets; build:sites also ran prepare-sites-worker.",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && node scripts/prepare-ocr-assets.mjs && vite build && node scripts/remove-unused-ort-assets.mjs",
-    "build:sites": "tsc -b && node scripts/prepare-ocr-assets.mjs && vite build && node scripts/remove-unused-ort-assets.mjs && node scripts/prepare-sites-worker.mjs",
+    "build": "tsc -b && node scripts/prepare-ocr-assets.mjs && vite build && node scripts/prepare-legacy-entry.mjs && node scripts/remove-unused-ort-assets.mjs",
+    "build:sites": "tsc -b && node scripts/prepare-ocr-assets.mjs && vite build && node scripts/prepare-legacy-entry.mjs && node scripts/remove-unused-ort-assets.mjs && node scripts/prepare-sites-worker.mjs",
     "preview": "vite preview",
     "lint": "eslint src tests --max-warnings=0",
     "typecheck": "tsc -b --pretty false",

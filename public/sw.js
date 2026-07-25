@@ -1,7 +1,8 @@
 /* The service worker cache is intentionally separate from IndexedDB game data. */
 // Original cache key: go-stop-shell-v1
 // Original deployed cache version: go-stop-shell-v1.0.0
-const VERSION = "go-stop-shell-v1.1.0";
+// Previous PaddleOCR cache version: go-stop-shell-v1.1.0
+const VERSION = "go-stop-shell-v1.1.1";
 const base = new URL("./", self.registration.scope);
 const shell = ["./", "./index.html", "./manifest.webmanifest", "./favicon.svg", "./og.png"].map((path) => new URL(path, base).href);
 
@@ -23,6 +24,9 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+/*
+ * Original cache-first fetch behavior:
+ *
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
@@ -32,6 +36,33 @@ self.addEventListener("fetch", (event) => {
         if (response.ok) caches.open(VERSION).then((cache) => cache.put(event.request, response.clone()));
         return response;
       }).catch(() => caches.match(new URL("./index.html", base).href));
+    }),
+  );
+});
+ */
+
+self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) return;
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) caches.open(VERSION).then((cache) => cache.put(event.request, response.clone()));
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached ?? caches.match(new URL("./index.html", base).href))),
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((response) => {
+        if (response.ok) caches.open(VERSION).then((cache) => cache.put(event.request, response.clone()));
+        return response;
+      });
     }),
   );
 });
