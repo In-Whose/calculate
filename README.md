@@ -7,7 +7,8 @@
 ## 주요 기능
 
 - JPG·PNG·WEBP 스크린샷 최대 10장 선택, 순서 변경, 중복 SHA-256 감지
-- Tesseract.js Web Worker 기반 한국어·영어 로컬 OCR과 이미지별 진행률·취소
+<!-- Original: Tesseract.js Web Worker 기반 한국어·영어 로컬 OCR과 이미지별 진행률·취소 -->
+- PaddleOCR.js Web Worker와 한국어 PP-OCRv5 모바일 모델 기반 로컬 OCR·취소
 - `승자 / 패자 -금액` 형식의 규칙 기반 파싱과 불확실한 판 확인
 - 판 추가·삭제·순서 변경, 승패·금액 수정, 실시간 손익·송금 미리보기
 - 날짜별 게임, 판, 참가자, 별칭, 정산 완료 상태를 IndexedDB에 영구 저장
@@ -19,7 +20,8 @@
 
 ## 정적 구조를 선택한 이유
 
-GitHub Pages는 정적 HTML, CSS, JavaScript만 제공합니다. 따라서 FastAPI, 서버 PaddleOCR, 서버 SQLite는 실행할 수 없습니다. 이 프로젝트는 React + TypeScript + Vite, Tesseract.js, Dexie/IndexedDB로 구성되어 별도 서버 비용이나 비밀키가 필요 없습니다.
+<!-- Original: GitHub Pages는 정적 HTML, CSS, JavaScript만 제공합니다. 따라서 FastAPI, 서버 PaddleOCR, 서버 SQLite는 실행할 수 없습니다. 이 프로젝트는 React + TypeScript + Vite, Tesseract.js, Dexie/IndexedDB로 구성되어 별도 서버 비용이나 비밀키가 필요 없습니다. -->
+GitHub Pages는 정적 HTML, CSS, JavaScript만 제공합니다. 따라서 FastAPI, Python PaddleOCR, 서버 SQLite는 실행할 수 없습니다. 이 프로젝트는 React + TypeScript + Vite, 브라우저용 PaddleOCR.js, Dexie/IndexedDB로 구성되어 별도 서버 비용이나 비밀키가 필요 없습니다.
 
 ## 지원 환경
 
@@ -36,7 +38,8 @@ npm ci
 npm run dev
 ```
 
-개발 주소가 표시되면 브라우저에서 엽니다. 첫 OCR 실행은 한국어·영어 모델 약 수십 MB를 로드하므로 네트워크와 기기에 따라 시간이 걸립니다. 이후 브라우저 캐시를 재사용합니다.
+<!-- Original: 개발 주소가 표시되면 브라우저에서 엽니다. 첫 OCR 실행은 한국어·영어 모델 약 수십 MB를 로드하므로 네트워크와 기기에 따라 시간이 걸립니다. 이후 브라우저 캐시를 재사용합니다. -->
+개발 주소가 표시되면 브라우저에서 엽니다. 첫 OCR 실행은 PaddleOCR.js 실행 파일과 한국어 PP-OCRv5 모델 약 50MB 이상을 로드하므로 네트워크와 기기에 따라 시간이 걸립니다. 이후 브라우저 캐시를 재사용합니다.
 
 검사 명령:
 
@@ -57,7 +60,8 @@ npm run preview
 
 ## OCR 모델과 라이선스
 
-`public/tessdata/kor.traineddata.gz`와 `eng.traineddata.gz`는 Project Naptha/Tesseract tessdata 4.0.0 계열 모델입니다. Tesseract.js 및 모델의 라이선스는 Apache License 2.0입니다. 앱은 `import.meta.env.BASE_URL` 아래의 모델을 읽으므로 GitHub Pages 프로젝트 하위 경로에서도 동작합니다.
+<!-- Original: `public/tessdata/kor.traineddata.gz`와 `eng.traineddata.gz`는 Project Naptha/Tesseract tessdata 4.0.0 계열 모델입니다. Tesseract.js 및 모델의 라이선스는 Apache License 2.0입니다. 앱은 `import.meta.env.BASE_URL` 아래의 모델을 읽으므로 GitHub Pages 프로젝트 하위 경로에서도 동작합니다. -->
+`public/models`에는 공식 `PP-OCRv5_mobile_det` 문자 검출 모델과 `korean_PP-OCRv5_mobile_rec` 한국어 인식 모델이 들어 있습니다. PaddleOCR.js와 PaddleOCR 모델은 Apache License 2.0이며, 모델·WASM 파일은 `import.meta.env.BASE_URL` 아래에서 읽으므로 GitHub Pages 프로젝트 하위 경로에서도 동작합니다. 기존 Tesseract 모델 파일은 변경 이력 보존을 위해 남겨두었지만 앱에서는 사용하지 않습니다.
 
 정확도 한계:
 
@@ -101,7 +105,8 @@ CSV는 스프레드시트 분석용이며 완전한 복원에는 JSON 백업을 
 
 ## 문제 해결
 
-- **OCR 모델 404**: 저장소의 `public/tessdata` 파일이 push되었는지, Pages 주소가 저장소 하위 경로인지 확인합니다.
+<!-- Original: **OCR 모델 404**: 저장소의 `public/tessdata` 파일이 push되었는지, Pages 주소가 저장소 하위 경로인지 확인합니다. -->
+- **OCR 모델 404**: 저장소의 `public/models`와 `public/ort` 파일이 push되었는지, Pages 주소가 저장소 하위 경로인지 확인합니다.
 - **첫 OCR이 느림**: Wi‑Fi에서 한 번 모델을 받은 후 다시 시도합니다. 고해상도 사진 수를 줄이면 메모리 사용량이 감소합니다.
 - **기록이 안 보임**: 같은 도메인과 브라우저인지 확인합니다. 사용자 사이트와 프로젝트 사이트는 서로 다른 IndexedDB를 씁니다.
 - **Pages가 빈 화면**: Actions의 모든 검사 통과 여부와 Settings의 Pages Source가 GitHub Actions인지 확인합니다.
