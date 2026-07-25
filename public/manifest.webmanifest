@@ -1,0 +1,19 @@
+{
+  "name": "고스톱 장부",
+  "short_name": "고스톱 장부",
+  "description": "카카오톡 캡처를 기기 안에서 OCR하고 정산하는 로컬 장부",
+  "lang": "ko-KR",
+  "start_url": "./#/dashboard",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f2ed",
+  "theme_color": "#f3a55f",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
