@@ -41,6 +41,9 @@ yarn-error.log*
 next-env.d.ts
 *.tsbuildinfo
 /dist/
+# Original OCR runtime files are generated during the build instead of stored in Git.
+/public/models/
+/public/ort/
 /.wrangler/
 /outputs/
 /work/

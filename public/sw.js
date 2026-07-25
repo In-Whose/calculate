@@ -1,6 +1,7 @@
 /* The service worker cache is intentionally separate from IndexedDB game data. */
 // Original cache key: go-stop-shell-v1
-const VERSION = "go-stop-shell-v1.0.0";
+// Original deployed cache version: go-stop-shell-v1.0.0
+const VERSION = "go-stop-shell-v1.1.0";
 const base = new URL("./", self.registration.scope);
 const shell = ["./", "./index.html", "./manifest.webmanifest", "./favicon.svg", "./og.png"].map((path) => new URL(path, base).href);
 

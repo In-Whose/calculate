@@ -17,7 +17,8 @@ import { detectDates, reconstructText } from "../lib/ocrPostprocess";
 import { parseOcrText, stableRoundKey, validateRound } from "../lib/parser";
 import { createId, formatWon, localDate, sha256 } from "../lib/utils";
 import type { EditableRound, Player, PlayerAlias, SavedGame } from "../types";
-import { TesseractOcrEngine } from "../workers/ocrEngine";
+// Original OCR import: import { TesseractOcrEngine } from "../workers/ocrEngine";
+import { PaddleOcrEngine } from "../workers/ocrEngine";
 
 type Screen = "dashboard" | "new" | "history" | "players" | "data";
 type ImageItem = { file: File; hash: string; preview: string; duplicate: string | null };
@@ -319,7 +320,8 @@ function NewGame({
     if (!images.length) return setMessage("먼저 카카오톡 스크린샷을 선택해 주세요.");
     const controller = new AbortController();
     abortRef.current = controller;
-    const engine = new TesseractOcrEngine();
+    // Original OCR engine: const engine = new TesseractOcrEngine();
+    const engine = new PaddleOcrEngine();
     const parsed: EditableRound[] = [];
     const dates = new Set<string>();
     setProgress({ active: true, label: "한국어 OCR 모델을 준비하는 중", value: 0 });
@@ -707,7 +709,8 @@ function DataRoom({ onChange, notify }: { onChange: () => Promise<void>; notify:
         if (!confirm("마지막 확인입니다. 정말 삭제할까요?")) return;
         await clearAllData(); await onChange(); notify("이 브라우저의 모든 기록을 삭제했습니다.");
       }}>전체 삭제</button></div>
-      <footer className="app-info"><strong>고스톱 장부 v1.0</strong><span>Tesseract.js 6 · IndexedDB · 오픈소스</span></footer>
+      {/* Original footer: <footer className="app-info"><strong>고스톱 장부 v1.0</strong><span>Tesseract.js 6 · IndexedDB · 오픈소스</span></footer> */}
+      <footer className="app-info"><strong>고스톱 장부 v1.1</strong><span>PaddleOCR.js · 한국어 PP-OCRv5 · IndexedDB</span></footer>
     </section>
   );
 }
