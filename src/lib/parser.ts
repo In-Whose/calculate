@@ -68,11 +68,22 @@ export function parseSettlementLine(
   };
 }
  */
+/*
+ * Original parser options before strict OCR-line filtering:
+ *
 interface ParseOptions {
   confidence?: number;
   sourceImageHash?: string;
   sourceImageIndex?: number;
   knownPlayerNames?: string[];
+}
+ */
+interface ParseOptions {
+  confidence?: number;
+  sourceImageHash?: string;
+  sourceImageIndex?: number;
+  knownPlayerNames?: string[];
+  strict?: boolean;
 }
 
 interface SettlementParts {
@@ -191,13 +202,16 @@ export function parseSettlementLine(
     cursor = (match.index ?? 0) + match[0].length;
   }
 
+  const hasUnparsedRemainder = hasMeaningfulRemainder(parts.loserPart.slice(cursor));
+  if (options.strict && (!losers.length || hasUnparsedRemainder)) return null;
+
   // Original warning order:
   // if (hasMeaningfulRemainder(parts.loserPart.slice(cursor))) {
   //   warning = warning ?? "해석하지 못한 문자가 있습니다.";
   // }
   // if (!losers.length) warning = warning ?? "패자와 금액을 확인해 주세요.";
   if (!losers.length) warning = warning ?? "패자와 금액을 확인해 주세요.";
-  if (losers.length && hasMeaningfulRemainder(parts.loserPart.slice(cursor))) {
+  if (losers.length && hasUnparsedRemainder) {
     warning = warning ?? "해석하지 못한 문자가 있습니다.";
   }
   if (losers.some((loser) => loser.name === parts.winnerName)) {
@@ -241,8 +255,90 @@ export function parseOcrText(text: string, options: ParseOptions = {}) {
   ];
   return text
     .split(/\r?\n/)
-    .map((line) => parseSettlementLine(line, { ...options, knownPlayerNames }))
+    // Original: .map((line) => parseSettlementLine(line, { ...options, knownPlayerNames }))
+    .map((line) => parseSettlementLine(line, { ...options, knownPlayerNames, strict: true }))
     .filter((round): round is EditableRound => Boolean(round));
+}
+
+function editDistance(first: string, second: string) {
+  const left = [...first];
+  const right = [...second];
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex];
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1),
+      );
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+  return previous[right.length];
+}
+
+export function canonicalizeRoundPlayerNames(
+  rounds: EditableRound[],
+  knownPlayerNames: string[] = [],
+) {
+  const counts = new Map<string, number>();
+  for (const round of rounds) {
+    counts.set(round.winnerName, (counts.get(round.winnerName) ?? 0) + 1);
+    for (const loser of round.losers) {
+      counts.set(loser.name, (counts.get(loser.name) ?? 0) + 1);
+    }
+  }
+
+  const savedNames = new Set(knownPlayerNames.map(cleanPlayerName).filter(Boolean));
+  // Original: const names = [...counts.keys()];
+  const names = [...new Set([...counts.keys(), ...savedNames])];
+  const replacements = new Map<string, string>();
+
+  for (const source of names) {
+    if (source.length < 2 || savedNames.has(source)) continue;
+    const candidates = names.filter(
+      (candidate) =>
+        candidate !== source
+        && candidate.length === source.length
+        && editDistance(source, candidate) === 1,
+    );
+    const savedCandidates = candidates.filter((candidate) => savedNames.has(candidate));
+    if (savedCandidates.length === 1) {
+      replacements.set(source, savedCandidates[0]);
+      continue;
+    }
+    if (savedCandidates.length > 1) continue;
+
+    const sourceCount = counts.get(source) ?? 0;
+    const dominantCandidates = candidates
+      .filter((candidate) => (counts.get(candidate) ?? 0) >= Math.max(3, sourceCount * 2))
+      .sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0));
+    if (
+      dominantCandidates.length
+      && (dominantCandidates.length === 1
+        || counts.get(dominantCandidates[0]) !== counts.get(dominantCandidates[1]))
+    ) {
+      replacements.set(source, dominantCandidates[0]);
+    }
+  }
+
+  const corrections = [...replacements].map(([from, to]) => ({
+    from,
+    to,
+    count: counts.get(from) ?? 0,
+  }));
+  return {
+    corrections,
+    rounds: rounds.map((round) => ({
+      ...round,
+      winnerName: replacements.get(round.winnerName) ?? round.winnerName,
+      losers: round.losers.map((loser) => ({
+        ...loser,
+        name: replacements.get(loser.name) ?? loser.name,
+      })),
+    })),
+  };
 }
 
 export function stableRoundKey(round: Pick<EditableRound, "winnerName" | "losers">) {

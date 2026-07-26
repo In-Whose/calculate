@@ -14,8 +14,14 @@ import {
 import { clearAllData, downloadBackup, downloadCsv, importBackup } from "../db/backup";
 import { calculateBalances, calculateTransfers } from "../lib/settlement";
 import { detectDates, reconstructText } from "../lib/ocrPostprocess";
-// Original: import { parseOcrText, stableRoundKey, validateRound } from "../lib/parser";
-import { inferWinnerNames, parseOcrText, stableRoundKey, validateRound } from "../lib/parser";
+// Original: import { inferWinnerNames, parseOcrText, stableRoundKey, validateRound } from "../lib/parser";
+import {
+  canonicalizeRoundPlayerNames,
+  inferWinnerNames,
+  parseOcrText,
+  stableRoundKey,
+  validateRound,
+} from "../lib/parser";
 import { createId, formatWon, localDate, sha256 } from "../lib/utils";
 import type { EditableRound, Player, PlayerAlias, SavedGame } from "../types";
 // Original OCR import: import { TesseractOcrEngine } from "../workers/ocrEngine";
@@ -365,10 +371,17 @@ function NewGame({
           knownPlayerNames,
         }));
       }
+      const canonicalized = canonicalizeRoundPlayerNames(parsed, playerNames);
       if (dates.size === 1) setDate([...dates][0]);
       if (dates.size > 1) setMessage(`서로 다른 날짜(${[...dates].join(", ")})가 감지되었습니다. 날짜를 확인해 주세요.`);
       if (!parsed.length) setMessage("정산 형식의 문장을 찾지 못했습니다. 판을 직접 추가하거나 이미지를 바꿔 보세요.");
-      setRounds((current) => markDuplicates([...current, ...parsed]));
+      if (canonicalized.corrections.length && dates.size <= 1) {
+        setMessage(
+          `OCR 이름 보정: ${canonicalized.corrections.map(({ from, to }) => `${from} → ${to}`).join(", ")}. 판을 확인해 주세요.`,
+        );
+      }
+      // Original: setRounds((current) => markDuplicates([...current, ...parsed]));
+      setRounds((current) => markDuplicates([...current, ...canonicalized.rounds]));
     } catch (reason) {
       // Original: setMessage(reason instanceof DOMException && reason.name === "AbortError" ? "OCR을 취소했습니다." : "OCR 처리 중 문제가 생겼습니다.");
       console.error("OCR processing failed.", reason);

@@ -59,6 +59,31 @@ function publicAssetUrl(path: string) {
   return new URL(path, base).href;
 }
 
+function tokenRegionsOverlap(first: OcrToken, second: OcrToken) {
+  const firstHeight = Math.max(1, first.box.y1 - first.box.y0);
+  const secondHeight = Math.max(1, second.box.y1 - second.box.y0);
+  const firstCenterY = (first.box.y0 + first.box.y1) / 2;
+  const secondCenterY = (second.box.y0 + second.box.y1) / 2;
+  const horizontalOverlap = Math.max(
+    0,
+    Math.min(first.box.x1, second.box.x1) - Math.max(first.box.x0, second.box.x0),
+  );
+  const minimumWidth = Math.max(
+    1,
+    Math.min(first.box.x1 - first.box.x0, second.box.x1 - second.box.x0),
+  );
+  return Math.abs(firstCenterY - secondCenterY) <= Math.max(firstHeight, secondHeight) * 0.7
+    && horizontalOverlap / minimumWidth >= 0.55;
+}
+
+function deduplicateOverlappingTokens(tokens: OcrToken[]) {
+  const selected: OcrToken[] = [];
+  for (const token of [...tokens].sort((a, b) => b.confidence - a.confidence)) {
+    if (!selected.some((item) => tokenRegionsOverlap(item, token))) selected.push(token);
+  }
+  return selected.sort((a, b) => a.box.y0 - b.box.y0 || a.box.x0 - b.box.x0);
+}
+
 export class PaddleOcrEngine implements OcrEngine {
   private engine: PaddleOcrInstance | null = null;
   private disposed = false;
@@ -135,6 +160,9 @@ export class PaddleOcrEngine implements OcrEngine {
     onProgress({ status: "한국어 PP-OCRv5 준비 완료", progress: 1 });
   }
 
+  /*
+   * Original single-pass PaddleOCR recognition:
+   *
   async recognize(image: Blob, signal?: AbortSignal): Promise<OcrResult> {
     if (!this.engine) throw new Error("OCR 엔진이 준비되지 않았습니다.");
     if (signal?.aborted) throw new DOMException("OCR이 취소되었습니다.", "AbortError");
@@ -176,6 +204,103 @@ export class PaddleOcrEngine implements OcrEngine {
           ? tokens.reduce((sum, token) => sum + token.confidence, 0) / tokens.length
           : 0;
 
+      return {
+        text: tokens.map((token) => token.text).join("\n"),
+        confidence,
+        tokens,
+      };
+    } catch (reason) {
+      if (signal?.aborted || this.disposed) {
+        throw new DOMException("OCR이 취소되었습니다.", "AbortError");
+      }
+      throw reason;
+    } finally {
+      signal?.removeEventListener("abort", abort);
+    }
+  }
+   */
+
+  private async predictTokens(image: Blob, yOffset = 0) {
+    if (!this.engine) throw new Error("OCR 엔진이 준비되지 않았습니다.");
+    const [result] = await this.engine.predict(image, {
+      textDetLimitSideLen: 2600,
+      textDetLimitType: "max",
+      textDetMaxSideLimit: 3000,
+      textRecScoreThresh: 0.25,
+    });
+    return result.items.map((item): OcrToken => {
+      const xs = item.poly.map(([x]) => x);
+      const ys = item.poly.map(([, y]) => y);
+      return {
+        text: item.text.normalize("NFC"),
+        confidence: item.score,
+        box: {
+          x0: Math.min(...xs),
+          y0: Math.min(...ys) + yOffset,
+          x1: Math.max(...xs),
+          y1: Math.max(...ys) + yOffset,
+        },
+      };
+    });
+  }
+
+  private async cropImage(bitmap: ImageBitmap, y: number, height: number) {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("긴 이미지를 나눌 캔버스를 만들지 못했습니다.");
+    context.drawImage(bitmap, 0, y, bitmap.width, height, 0, 0, bitmap.width, height);
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("긴 이미지 조각을 만들지 못했습니다."));
+      }, "image/png");
+    });
+  }
+
+  async recognize(image: Blob, signal?: AbortSignal): Promise<OcrResult> {
+    if (!this.engine) throw new Error("OCR 엔진이 준비되지 않았습니다.");
+    if (signal?.aborted) throw new DOMException("OCR이 취소되었습니다.", "AbortError");
+
+    const activeEngine = this.engine;
+    const abort = () => {
+      this.disposed = true;
+      void activeEngine.dispose();
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+
+    try {
+      const bitmap = await createImageBitmap(image);
+      let tokens: OcrToken[] = [];
+      try {
+        if (bitmap.height <= 2600) {
+          tokens = await this.predictTokens(image);
+        } else {
+          const tileHeight = 2200;
+          const overlap = 200;
+          for (let y = 0; y < bitmap.height; y += tileHeight - overlap) {
+            if (signal?.aborted || this.disposed) {
+              throw new DOMException("OCR이 취소되었습니다.", "AbortError");
+            }
+            const height = Math.min(tileHeight, bitmap.height - y);
+            const tile = await this.cropImage(bitmap, y, height);
+            tokens.push(...await this.predictTokens(tile, y));
+            if (y + height >= bitmap.height) break;
+          }
+          tokens = deduplicateOverlappingTokens(tokens);
+        }
+      } finally {
+        bitmap.close();
+      }
+
+      if (signal?.aborted || this.disposed) {
+        throw new DOMException("OCR이 취소되었습니다.", "AbortError");
+      }
+      const confidence =
+        tokens.length > 0
+          ? tokens.reduce((sum, token) => sum + token.confidence, 0) / tokens.length
+          : 0;
       return {
         text: tokens.map((token) => token.text).join("\n"),
         confidence,

@@ -52,12 +52,42 @@ export function reconstructText(tokens: OcrToken[]) {
     .join("\n");
 }
 
+/*
+ * Original date search, which also matched dates mentioned inside ordinary chat:
+ *
 export function detectDates(text: string) {
   const dates = new Set<string>();
   const year = new Date().getFullYear();
   for (const match of text.matchAll(/(?:(\d{4})[.\-/년]\s*)?(\d{1,2})[.\-/월]\s*(\d{1,2})일?/g)) {
     const candidate = `${match[1] ?? year}-${String(Number(match[2])).padStart(2, "0")}-${String(Number(match[3])).padStart(2, "0")}`;
     if (!Number.isNaN(new Date(`${candidate}T00:00:00`).getTime())) dates.add(candidate);
+  }
+  return [...dates];
+}
+ */
+export function detectDates(text: string) {
+  const dates = new Set<string>();
+  // Original strict-line draft also accepted date-only chat such as "8월 9일":
+  // const currentYear = new Date().getFullYear();
+  // const dateSeparator =
+  //   /^\s*[^\p{L}\p{N}]{0,3}\s*(?:(\d{4})[.\-/년]\s*)?(\d{1,2})[.\-/월]\s*(\d{1,2})일?(?:\s*(?:월|화|수|목|금|토|일)요일)?\s*$/u;
+  const dateSeparator =
+    /^\s*[^\p{L}\p{N}]{0,3}\s*(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})일?\s*(?:월|화|수|목|금|토|일)요일\s*$/u;
+
+  for (const line of text.split(/\r?\n/)) {
+    const match = line.match(dateSeparator);
+    if (!match) continue;
+    const candidate =
+      `${match[1]}-${String(Number(match[2])).padStart(2, "0")}-${String(Number(match[3])).padStart(2, "0")}`;
+    const parsed = new Date(`${candidate}T00:00:00`);
+    if (
+      !Number.isNaN(parsed.getTime())
+      && parsed.getFullYear() === Number(match[1])
+      && parsed.getMonth() + 1 === Number(match[2])
+      && parsed.getDate() === Number(match[3])
+    ) {
+      dates.add(candidate);
+    }
   }
   return [...dates];
 }

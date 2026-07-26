@@ -17,6 +17,12 @@ describe("OCR 후처리", () => {
     expect(detectDates("2026년 7월 25일 토요일")).toEqual(["2026-07-25"]);
   });
 
+  it("일반 채팅에 포함된 날짜는 카카오톡 날짜 구분선으로 오인하지 않는다", () => {
+    expect(detectDates("8월 9일에 나랑 허세단 콘서트 갈 사람")).toEqual([]);
+    expect(detectDates("8월 9일")).toEqual([]);
+    expect(detectDates("잡담\n2026년 6월 22일 월요일\n다른 대화")).toEqual(["2026-06-22"]);
+  });
+
   it("카카오톡 시간·수정 표시·작은 읽음 숫자를 OCR 문장에서 제거한다", () => {
     const text = reconstructText([
       { text: "명수/지원 인후-400", confidence: 1, box: { x0: 128, y0: 166, x1: 357, y1: 197 } },
