@@ -27,8 +27,27 @@ export function groupTokensIntoLines(tokens: OcrToken[]) {
     .sort((a, b) => a[0].box.y0 - b[0].box.y0);
 }
 
+/*
+ * Original OCR text reconstruction:
+ *
 export function reconstructText(tokens: OcrToken[]) {
   return groupTokensIntoLines(tokens)
+    .map((line) => line.map((token) => token.text).join(" "))
+    .join("\n");
+}
+ */
+function isKakaoInterfaceToken(token: OcrToken) {
+  const compact = token.text.replace(/\s+/g, "");
+  if (/^(?:오전|오후)\d{1,2}:\d{2}$/i.test(compact)) return true;
+  if (compact === "수정됨") return true;
+
+  const width = Math.max(1, token.box.x1 - token.box.x0);
+  const height = Math.max(1, token.box.y1 - token.box.y0);
+  return /^[12]$/.test(compact) && width <= 32 && height <= 36;
+}
+
+export function reconstructText(tokens: OcrToken[]) {
+  return groupTokensIntoLines(tokens.filter((token) => !isKakaoInterfaceToken(token)))
     .map((line) => line.map((token) => token.text).join(" "))
     .join("\n");
 }

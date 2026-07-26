@@ -16,4 +16,16 @@ describe("OCR 후처리", () => {
   it("카카오톡 날짜 구분선을 현지 날짜로 찾는다", () => {
     expect(detectDates("2026년 7월 25일 토요일")).toEqual(["2026-07-25"]);
   });
+
+  it("카카오톡 시간·수정 표시·작은 읽음 숫자를 OCR 문장에서 제거한다", () => {
+    const text = reconstructText([
+      { text: "명수/지원 인후-400", confidence: 1, box: { x0: 128, y0: 166, x1: 357, y1: 197 } },
+      { text: "2", confidence: 1, box: { x0: 384, y0: 158, x1: 400, y1: 180 } },
+      { text: "오후9:54", confidence: 1, box: { x0: 382, y0: 181, x1: 483, y1: 211 } },
+      { text: "수정됨", confidence: 1, box: { x0: 617, y0: 281, x1: 682, y1: 315 } },
+      { text: "인후/지원-2000명수-1000", confidence: 1, box: { x0: 130, y0: 494, x1: 451, y1: 521 } },
+    ]);
+
+    expect(text).toBe("명수/지원 인후-400\n인후/지원-2000명수-1000");
+  });
 });

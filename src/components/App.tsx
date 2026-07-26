@@ -14,7 +14,8 @@ import {
 import { clearAllData, downloadBackup, downloadCsv, importBackup } from "../db/backup";
 import { calculateBalances, calculateTransfers } from "../lib/settlement";
 import { detectDates, reconstructText } from "../lib/ocrPostprocess";
-import { parseOcrText, stableRoundKey, validateRound } from "../lib/parser";
+// Original: import { parseOcrText, stableRoundKey, validateRound } from "../lib/parser";
+import { inferWinnerNames, parseOcrText, stableRoundKey, validateRound } from "../lib/parser";
 import { createId, formatWon, localDate, sha256 } from "../lib/utils";
 import type { EditableRound, Player, PlayerAlias, SavedGame } from "../types";
 // Original OCR import: import { TesseractOcrEngine } from "../workers/ocrEngine";
@@ -323,6 +324,12 @@ function NewGame({
     // Original OCR engine: const engine = new TesseractOcrEngine();
     const engine = new PaddleOcrEngine();
     const parsed: EditableRound[] = [];
+    const recognizedImages: Array<{
+      text: string;
+      confidence: number;
+      sourceImageHash: string;
+      sourceImageIndex: number;
+    }> = [];
     const dates = new Set<string>();
     setProgress({ active: true, label: "한국어 OCR 모델을 준비하는 중", value: 0 });
     setMessage(null);
@@ -334,11 +341,29 @@ function NewGame({
           const result = await engine.recognize(image.file, controller.signal);
           const text = result.tokens.length ? reconstructText(result.tokens) : result.text;
           detectDates(text).forEach((value) => dates.add(value));
-          parsed.push(...parseOcrText(text, { confidence: result.confidence, sourceImageHash: image.hash, sourceImageIndex: index }));
+          // Original: parsed.push(...parseOcrText(text, { confidence: result.confidence, sourceImageHash: image.hash, sourceImageIndex: index }));
+          recognizedImages.push({
+            text,
+            confidence: result.confidence,
+            sourceImageHash: image.hash,
+            sourceImageIndex: index,
+          });
         } catch (reason) {
           if (reason instanceof DOMException && reason.name === "AbortError") throw reason;
           setMessage(`${image.file.name} 인식에 실패했습니다. 다른 이미지는 계속 처리했습니다.`);
         }
+      }
+      const knownPlayerNames = [
+        ...playerNames,
+        ...recognizedImages.flatMap(({ text }) => inferWinnerNames(text)),
+      ];
+      for (const recognized of recognizedImages) {
+        parsed.push(...parseOcrText(recognized.text, {
+          confidence: recognized.confidence,
+          sourceImageHash: recognized.sourceImageHash,
+          sourceImageIndex: recognized.sourceImageIndex,
+          knownPlayerNames,
+        }));
       }
       if (dates.size === 1) setDate([...dates][0]);
       if (dates.size > 1) setMessage(`서로 다른 날짜(${[...dates].join(", ")})가 감지되었습니다. 날짜를 확인해 주세요.`);
