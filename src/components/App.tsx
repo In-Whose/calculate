@@ -465,7 +465,8 @@ function NewGame({
         <div className="step-number">02</div>
         <div className="card-title"><div><h2>카톡 캡처</h2><p>최대 10장 · 장당 10MB</p></div><span className="privacy-chip">외부 전송 없음</span></div>
         <label className="upload-zone">
-          <input type="file" accept="image/jpeg,image/png,image/webp" multiple capture="environment" onChange={selectImages} />
+          {/* Original: <input type="file" accept="image/jpeg,image/png,image/webp" multiple capture="environment" onChange={selectImages} /> */}
+          <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={selectImages} />
           <span className="upload-icon">＋</span>
           <strong>스크린샷 선택 또는 촬영</strong>
           <small>JPG · PNG · WEBP</small>
